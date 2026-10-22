@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+    <meta charset="UTF-8">
+    <title>WACC և Ընթացիկ Ֆինանսական Պահանջ - Համեմատական Վերլուծություն</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 30px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 35px; border-radius: 14px; box-shadow: 0 8px 25px rgba(0,0,0,0.06); }
+        h1 { color: #1e3d59; text-align: center; margin-bottom: 5px; font-size: 25px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 25px; font-size: 14px; }
+        
+        .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .company-box { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; transition: box-shadow 0.3s; }
+        .company-box:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .company-box.comp1 { border-top: 4px solid #1e3d59; }
+        .company-box.comp2 { border-top: 4px solid #ff6e40; }
+        
+        .company-title { font-size: 16px; font-weight: bold; color: #1e3d59; margin-bottom: 15px; text-align: center; }
+        .form-group { margin-bottom: 12px; text-align: left; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; color: #444; font-size: 12px; }
+        
+        input { width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-sizing: border-box; background: #fff; transition: all 0.2s; }
+        input:focus { border-color: #ff6e40; outline: none; box-shadow: 0 0 0 3px rgba(255, 110, 64, 0.12); background: #fff; }
+        
+        .btn-container { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 25px; }
+        
+        button { background-color: #ff6e40; color: white; border: none; padding: 14px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: background 0.3s, transform 0.1s; box-shadow: 0 4px 12px rgba(255, 110, 64, 0.2); }
+        button:hover { background-color: #e55b32; }
+        button:active { transform: scale(0.99); }
+        
+        .btn-reset { background-color: #64748b; box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2); }
+        .btn-reset:hover { background-color: #475569; }
+        
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+        .result-card { padding: 18px; border-radius: 10px; text-align: center; background-color: #e8f4f8; border-left: 5px solid #1e3d59; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .result-card.comp2-res { background-color: #fff2ed; border-left-color: #ff6e40; }
+        .result-card h3 { margin: 0 0 8px 0; font-size: 16px; color: #1e3d59; }
+        .val-highlight { font-size: 26px; font-weight: bold; margin-top: 5px; }
+
+        .analysis-box { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #2ecc71; padding: 16px; margin-top: 20px; border-radius: 8px; color: #166534; font-size: 14px; line-height: 1.5; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+
+        .charts-container { margin-top: 35px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-card { background: #fafafa; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>WACC և Ընթացիկ Ֆինանսական Պահանջի Մոդելավորում</h1>
+        <p class="subtitle">Կորպորացիաների ֆինանսական ցուցանիշների դինամիկ համեմատական վերլուծություն</p>
+        
+        <form method="POST" id="calcForm">
+            <div class="comparison-grid">
+                
+                <!-- 1-ԻՆ ԸՆԿԵՐՈՒԹՅՈՒՆ -->
+                <div class="company-box comp1">
+                    <div class="company-title">1-ին Ընկերություն</div>
+                    <div class="form-group">
+                        <label>Ընկերության անվանումը:</label>
+                        <input type="text" name="c1_name" value="{{ c1.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Սեփական կապիտալ (E):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_e" value="{{ c1.e }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Փոխառու կապիտալ (D):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_d" value="{{ c1.d }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Սեփական կապիտալի արժեք (Ke %):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_ke" value="{{ c1.ke }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Փոխառու կապիտալի արժեք (Kd %):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_kd" value="{{ c1.kd }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Շահութահարկ (%):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_tax" value="{{ c1.tax }}" required>
+                    </div>
+                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:14px 0;">
+                    <div class="form-group">
+                        <label>Պաշարներ (Inventory):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_inv" value="{{ c1.inv }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Դեբիտորական պարտքեր:</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_rec" value="{{ c1.rec }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Կրեդիտորական պարտքեր:</label>
+                        <input type="number" step="any" inputmode="decimal" name="c1_pay" value="{{ c1.pay }}" required>
+                    </div>
+                </div>
+
+                <!-- 2-ՐԴ ԸՆԿԵՐՈՒԹՅՈՒՆ -->
+                <div class="company-box comp2">
+                    <div class="company-title">2-րդ Ընկերություն</div>
+                    <div class="form-group">
+                        <label>Ընկերության անվանումը:</label>
+                        <input type="text" name="c2_name" value="{{ c2.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Սեփական կապիտալ (E):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_e" value="{{ c2.e }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Փոխառու կապիտալ (D):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_d" value="{{ c2.d }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Սեփական կապիտալի արժեք (Ke %):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_ke" value="{{ c2.ke }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Փոխառու կապիտալի արժեք (Kd %):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_kd" value="{{ c2.kd }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Շահութահարկ (%):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_tax" value="{{ c2.tax }}" required>
+                    </div>
+                    <hr style="border:0; border-top:1px solid #e2e8f0; margin:14px 0;">
+                    <div class="form-group">
+                        <label>Պաշարներ (Inventory):</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_inv" value="{{ c2.inv }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Դեբիտորական պարտքեր:</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_rec" value="{{ c2.rec }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Կրեդիտորական պարտքեր:</label>
+                        <input type="number" step="any" inputmode="decimal" name="c2_pay" value="{{ c2.pay }}" required>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="btn-container">
+                <button type="submit" id="submitBtn">Վերահաշվարկել և Համեմատել</button>
+                <button type="submit" name="reset" value="true" class="btn-reset" onclick="localStorage.clear();">Սկզբնական վիճակ</button>
+            </div>
+        </form>
+
+        <!-- ԱՐԴՅՈՒՆՔՆԵՐ -->
+        <div class="results-grid" id="resultsSection">
+            <div class="result-card">
+                <h3>{{ c1.name }}</h3>
+                <div style="margin-bottom:8px;">WACC: <span class="val-highlight" style="color:#1e3d59;">{{ wacc1 }}%</span></div>
+                <div>NWC: <span class="val-highlight" style="color:#1e3d59;">{{ nwc1 }}</span></div>
+            </div>
+            <div class="result-card comp2-res">
+                <h3>{{ c2.name }}</h3>
+                <div style="margin-bottom:8px;">WACC: <span class="val-highlight" style="color:#ff6e40;">{{ wacc2 }}%</span></div>
+                <div>NWC: <span class="val-highlight" style="color:#ff6e40;">{{ nwc2 }}</span></div>
+            </div>
+        </div>
+
+        <!-- ԱՎՏՈՄԱՏ ԵԶՐԱԿԱՑՈՒԹՅՈՒՆ -->
+        <div class="analysis-box">
+            <b>📊 Ավտոմատ Վերլուծական Եզրակացություն.</b><br>
+            {{ analysis }}
+        </div>
+
+        <!-- ԳՐԱՖԻԿՆԵՐ -->
+        <div class="charts-container">
+            <div class="chart-card">
+                <h4 style="text-align:center; color:#1e3d59; margin-top:5px;">WACC (%) Համեմատություն</h4>
+                <canvas id="waccChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h4 style="text-align:center; color:#1e3d59; margin-top:5px;">NWC (Ընթացիկ Պահանջ) Համեմատություն</h4>
+                <canvas id="nwcChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('calcForm').addEventListener('submit', function(e) {
+            // Եթե սեղմվել է զրոյացման կոճակը, մաքրում ենք հիշված սկրոլը
+            if (e.submitter && e.submitter.name === 'reset') {
+                localStorage.removeItem('scrollPosition');
+            } else {
+                localStorage.setItem('scrollPosition', window.scrollY);
+            }
+        });
+
+        window.addEventListener('load', function() {
+            const scrollPos = localStorage.getItem('scrollPosition');
+            if (scrollPos) {
+                window.scrollTo(0, parseInt(scrollPos));
+                localStorage.removeItem('scrollPosition');
+            }
+        });
+
+        // 1. WACC Bar Chart
+        const ctxW = document.getElementById('waccChart').getContext('2d');
+        let waccChartInstance = Chart.getChart(ctxW);
+        if (waccChartInstance) { waccChartInstance.destroy(); }
+        new Chart(ctxW, {
+            type: 'bar',
+            data: {
+                labels: ['{{ c1.name }}', '{{ c2.name }}'],
+                datasets: [{
+                    label: 'WACC (%)',
+                    data: [{{ wacc1 }}, {{ wacc2 }}],
+                    backgroundColor: ['#1e3d59', '#ff6e40']
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        });
+
+        // 2. NWC Bar Chart
+        const ctxN = document.getElementById('nwcChart').getContext('2d');
+        let nwcChartInstance = Chart.getChart(ctxN);
+        if (nwcChartInstance) { nwcChartInstance.destroy(); }
+        new Chart(ctxN, {
+            type: 'bar',
+            data: {
+                labels: ['{{ c1.name }}', '{{ c2.name }}'],
+                datasets: [{
+                    label: 'NWC',
+                    data: [{{ nwc1 }}, {{ nwc2 }}],
+                    backgroundColor: ['#3498db', '#e67e22']
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        });
+    </script>
+
+</body>
+</html>
