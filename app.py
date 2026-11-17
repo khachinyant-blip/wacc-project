@@ -2,148 +2,104 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
+# Թեզում նկարագրված երեք հանքարդյունաբերական ընկերությունների տվյալների բազա (2023-2025 թթ. հաշվետվությունների հիման վրա)
+COMPANIES_DATA = {
+    "ZCMC": {
+        "name": "«Զանգեզուրի պղնձամոլիբդենային կոմբինատ» ՓԲԸ",
+        "equity": 259.34,  # մլրդ դրամ (Սեփական կապիտալ)
+        "debt": 117.71,    # մլրդ դրամ (Տոկոսակիր պարտք)
+        "kd_pretax": 8.55, # % (Փոխառու կապիտալի նախահարկային արժեք)
+        "tax_rate": 18.0,  # % (Շահութահարկի դրույքաչափ)
+        "ke": 15.0,        # % (Սեփական կապիտալի արժեք CAPM հիմքով)
+        "cfr": 20.53,      # մլրդ դրամ (Ընթացիկ ֆինանսական պահանջ - ԸՖՊ)
+        "status": "Դրական սեփական կապիտալ, կայուն գործունեություն որոշ իրացվելիության տատանումներով"
+    },
+    "KAPAN": {
+        "name": "«Կապանի լեռնահարստացման կոմբինատ» ՓԲԸ",
+        "equity": 33.27,   # մլրդ դրամ
+        "debt": 18.76,     # մլրդ դրամ
+        "kd_pretax": 10.0, # %
+        "tax_rate": 18.0,  # %
+        "ke": 16.06,       # %
+        "cfr": 2.78,       # մլրդ դրամ (ԸՖՊ)
+        "status": "Դրական սեփական կապիտալ, շահութաբերության աճի միտում"
+    },
+    "TEGHOUT": {
+        "name": "«Թեղուտ» ՓԲԸ",
+        "equity": -77.88,  # մլրդ դրամ (Բացասական սեփական կապիտալ)
+        "debt": 163.35,    # մլրդ դրամ
+        "kd_pretax": 0.56, # % (Փաստացի վճարված տոկոսների հիման վրա նախնական գնահատական)
+        "tax_rate": 18.0,  # %
+        "ke": 0.0,         # Բացասական կապիտալի պայմաններում պայմանական/կիրառելի չէ
+        "cfr": -12.5,      # մլրդ դրամ (ԸՖՊ-ն բացասական է մեծ կրեդիտորականների պատճառով)
+        "status": "Բացասական սեփական կապիտալ, բարձր պարտքային բեռ և գործունեության շարունակականության ռիսկեր"
+    }
+}
 
-def parse_float(val, default=0.0):
-    if not val:
-        return default
-    try:
-        return float(str(val).replace(",", "."))
-    except ValueError:
-        return default
-
+def calculate_wacc(equity, debt, ke, kd_pretax, tax_rate):
+    """Հաշվարկում է WACC-ը և կապիտալի կշիռները"""
+    if equity <= 0:
+        # Բացասական կապիտալի դեպքում դասական WACC հաշվարկը կիրառելի չէ (ինչպես նշված է թեզում)
+        return None, None, None
+    
+    total_capital = equity + debt
+    if total_capital == 0:
+        return 0, 0, 0
+        
+    we = equity / total_capital
+    wd = debt / total_capital
+    kd_after_tax = kd_pretax * (1 - tax_rate / 100)
+    
+    wacc = (we * ke) + (wd * kd_after_tax)
+    return wacc, we * 100, wd * 100
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    # Սկզբնական (Default) տվյալներ
-    default_comp1 = {
-        "name": "Ընկերություն 1",
-        "e": 250.0,
-        "d": 100.0,
-        "ke": 15.0,
-        "kd": 9.0,
-        "tax": 18.0,
-        "inv": 40.0,
-        "rec": 30.0,
-        "pay": 20.0,
-    }
-
-    default_comp2 = {
-        "name": "Ընկերություն 2",
-        "e": 180.0,
-        "d": 90.0,
-        "ke": 16.0,
-        "kd": 10.0,
-        "tax": 18.0,
-        "inv": 30.0,
-        "rec": 25.0,
-        "pay": 18.0,
-    }
-
-    comp1 = default_comp1.copy()
-    comp2 = default_comp2.copy()
-
+    selected_key = "ZCMC"
     if request.method == "POST":
-        # Եթե սեղմվել է «Սկզբնական վիճակ» կոճակը, ուղղակի վերադարձնում ենք դեֆոլտ արժեքները
-        if "reset" in request.form:
-            pass
-        else:
-            comp1["name"] = request.form.get("c1_name", default_comp1["name"])
-            comp1["e"] = parse_float(
-                request.form.get("c1_e"), default_comp1["e"]
-            )
-            comp1["d"] = parse_float(
-                request.form.get("c1_d"), default_comp1["d"]
-            )
-            comp1["ke"] = parse_float(
-                request.form.get("c1_ke"), default_comp1["ke"]
-            )
-            comp1["kd"] = parse_float(
-                request.form.get("c1_kd"), default_comp1["kd"]
-            )
-            comp1["tax"] = parse_float(
-                request.form.get("c1_tax"), default_comp1["tax"]
-            )
-            comp1["inv"] = parse_float(
-                request.form.get("c1_inv"), default_comp1["inv"]
-            )
-            comp1["rec"] = parse_float(
-                request.form.get("c1_rec"), default_comp1["rec"]
-            )
-            comp1["pay"] = parse_float(
-                request.form.get("c1_pay"), default_comp1["pay"]
-            )
+        selected_key = request.form.get("company", "ZCMC")
+    
+    comp = COMPANIES_DATA[selected_key]
+    
+    # Հիմնական WACC հաշվարկ ընտրված ընկերության համար
+    wacc, we_pct, wd_pct = calculate_wacc(comp["equity"], comp["debt"], comp["ke"], comp["kd_pretax"], comp["tax_rate"])
+    
+    # Սցենարային հաշվարկներ ԶՊՄԿ-ի համար (կամ ընդհանուր տրամաբանությամբ)
+    scenarios = []
+    if selected_key == "ZCMC":
+        cfr_val = comp["cfr"]
+        # Սցենար 1. ԸՖՊ-ի ամբողջական ֆինանսավորում լրացուցիչ վարկով
+        d1 = comp["debt"] + cfr_val
+        wacc1, _, _ = calculate_wacc(comp["equity"], d1, comp["ke"], comp["kd_pretax"], comp["tax_rate"])
+        scenarios.append({"name": "Սցենար 1: ԸՖՊ-ն ամբողջությամբ ֆինանսավորվում է վարկով", "wacc": round(wacc1, 2) if wacc1 else "Կիրառելի չէ"})
+        
+        # Սցենար 2. ԸՖՊ-ի ֆինանսավորում սեփական կապիտալով
+        e2 = comp["equity"] + cfr_val
+        wacc2, _, _ = calculate_wacc(e2, comp["debt"], comp["ke"], comp["kd_pretax"], comp["tax_rate"])
+        scenarios.append({"name": "Սցենար 2: ԸՖՊ-ն ամբողջությամբ ֆինանսավորվում է սեփական միջոցներով", "wacc": round(wacc2, 2) if wacc2 else "Կիրառելի չէ"})
 
-            comp2["name"] = request.form.get("c2_name", default_comp2["name"])
-            comp2["e"] = parse_float(
-                request.form.get("c2_e"), default_comp2["e"]
-            )
-            comp2["d"] = parse_float(
-                request.form.get("c2_d"), default_comp2["d"]
-            )
-            comp2["ke"] = parse_float(
-                request.form.get("c2_ke"), default_comp2["ke"]
-            )
-            comp2["kd"] = parse_float(
-                request.form.get("c2_kd"), default_comp2["kd"]
-            )
-            comp2["tax"] = parse_float(
-                request.form.get("c2_tax"), default_comp2["tax"]
-            )
-            comp2["inv"] = parse_float(
-                request.form.get("c2_inv"), default_comp2["inv"]
-            )
-            comp2["rec"] = parse_float(
-                request.form.get("c2_rec"), default_comp2["rec"]
-            )
-            comp2["pay"] = parse_float(
-                request.form.get("c2_pay"), default_comp2["pay"]
-            )
+    # Զգայունության վերլուծություն (Sensitivity Analysis)՝ Ke-ի փոփոխությունը ազդեցությունը WACC-ի վրա
+    sensitivity_results = []
+    if comp["equity"] > 0:
+        for ke_test in [10.0, 12.0, 14.0, 15.0, 16.0, 18.0, 20.0]:
+            w_test, _, _ = calculate_wacc(comp["equity"], comp["debt"], ke_test, comp["kd_pretax"], comp["tax_rate"])
+            if w_test:
+                sensitivity_results.append({"ke": ke_test, "wacc": round(w_test, 2)})
 
-    v1 = comp1["e"] + comp1["d"]
-    if v1 > 0:
-        we1 = comp1["e"] / v1
-        wd1 = comp1["d"] / v1
-        wacc1 = round(
-            (we1 * comp1["ke"])
-            + (wd1 * comp1["kd"] * (1 - comp1["tax"] / 100)),
-            2,
-        )
-    else:
-        wacc1 = 0.0
-    nwc1 = round((comp1["inv"] + comp1["rec"]) - comp1["pay"], 2)
-
-    v2 = comp2["e"] + comp2["d"]
-    if v2 > 0:
-        we2 = comp2["e"] / v2
-        wd2 = comp2["d"] / v2
-        wacc2 = round(
-            (we2 * comp2["ke"])
-            + (wd2 * comp2["kd"] * (1 - comp2["tax"] / 100)),
-            2,
-        )
-    else:
-        wacc2 = 0.0
-    nwc2 = round((comp2["inv"] + comp2["rec"]) - comp2["pay"], 2)
-
-    diff_wacc = round(abs(wacc1 - wacc2), 2)
-    if wacc1 < wacc2:
-        analysis_text = f"«{comp1['name']}» ընկերությունն ունի ավելի ցածր կապիտալի միջին կշռված արժեք ({wacc1}%), քան «{comp2['name']}»-ը ({wacc2}%): Տարբերությունը կազմում է {diff_wacc} տոկոսային կետ, ինչը վկայում է «{comp1['name']}»-ի ֆինանսավորման աղբյուրների ավելի արդյունավետ կառուցվածքի մասին:"
-    elif wacc1 > wacc2:
-        analysis_text = f"«{comp2['name']}» ընկերությունն ունի ավելի ցածր կապիտալի միջին կշռված արժեք ({wacc2}%), քան «{comp1['name']}»-ը ({wacc1}%): Տարբերությունը կազմում է {diff_wacc} տոկոսային կետ, ինչը վկայում է «{comp2['name']}»-ի ֆինանսավորման աղբյուրների ավելի արդյունավետ կառուցվածքի մասին:"
-    else:
-        analysis_text = f"Երկու ընկերությունների WACC ցուցանիշները հավասար են ({wacc1}%):"
+    analysis_text = f"Վերլուծվում է {comp['name']} ընկերությունը։ Ֆինանսական վիճակը՝ {comp['status']}։"
 
     return render_template(
         "index.html",
-        c1=comp1,
-        c2=comp2,
-        wacc1=wacc1,
-        nwc1=nwc1,
-        wacc2=wacc2,
-        nwc2=nwc2,
-        analysis=analysis_text,
+        companies=COMPANIES_DATA,
+        selected_key=selected_key,
+        comp=comp,
+        wacc=round(wacc, 2) if wacc is not None else "Կիրառելի չէ (Բացասական կապիտալ)",
+        we_pct=round(we_pct, 2) if we_pct is not None else 0,
+        wd_pct=round(wd_pct, 2) if wd_pct is not None else 0,
+        scenarios=scenarios,
+        sensitivity=sensitivity_results,
+        analysis=analysis_text
     )
 
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000, debug=True)
