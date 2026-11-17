@@ -2,103 +2,162 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-# Թեզում նկարագրված երեք հանքարդյունաբերական ընկերությունների տվյալների բազա (2023-2025 թթ. հաշվետվությունների հիման վրա)
+# Թեզում ներկայացված երեք ընկերությունների փաստացի տվյալները (մլրդ դրամ / %)
 COMPANIES_DATA = {
     "ZCMC": {
+        "short_name": "ԶՊՄԿ ՓԲԸ",
         "name": "«Զանգեզուրի պղնձամոլիբդենային կոմբինատ» ՓԲԸ",
-        "equity": 259.34,  # մլրդ դրամ (Սեփական կապիտալ)
-        "debt": 117.71,    # մլրդ դրամ (Տոկոսակիր պարտք)
-        "kd_pretax": 8.55, # % (Փոխառու կապիտալի նախահարկային արժեք)
-        "tax_rate": 18.0,  # % (Շահութահարկի դրույքաչափ)
-        "ke": 15.0,        # % (Սեփական կապիտալի արժեք CAPM հիմքով)
-        "cfr": 20.53,      # մլրդ դրամ (Ընթացիկ ֆինանսական պահանջ - ԸՖՊ)
-        "status": "Դրական սեփական կապիտալ, կայուն գործունեություն որոշ իրացվելիության տատանումներով"
+        "year": "2025 թ. (համախմբված)",
+        "equity": 259.34,
+        "debt": 117.71,
+        "kd_pretax": 8.55,
+        "tax_rate": 18.0,
+        "ke": 15.00,
+        "beta_l": 1.24,
+        "cfr": 20.53,
+        "cfr_prev": 28.38, # 2024 թ. ԸՖՊ՝ 3-րդ սցենարի (պարտքի մարման) հաշվարկի համար
+        "is_negative_equity": False,
+        "status": "Կայուն շահութաբերություն և դրական սեփական կապիտալ։ 2024–2025 թթ. նկատվել է պարտավորությունների աճ և ԸՖՊ-ի նվազում (57.72 մլրդ-ից մինչև 20.53 մլրդ դրամ)։"
     },
     "KAPAN": {
+        "short_name": "Կապանի ԼՀԿ ՓԲԸ",
         "name": "«Կապանի լեռնահարստացման կոմբինատ» ՓԲԸ",
-        "equity": 33.27,   # մլրդ դրամ
-        "debt": 18.76,     # մլրդ դրամ
-        "kd_pretax": 10.0, # %
-        "tax_rate": 18.0,  # %
-        "ke": 16.06,       # %
-        "cfr": 2.78,       # մլրդ դրամ (ԸՖՊ)
-        "status": "Դրական սեփական կապիտալ, շահութաբերության աճի միտում"
+        "year": "2024 թ.",
+        "equity": 33.27,
+        "debt": 18.76,
+        "kd_pretax": 10.00,
+        "tax_rate": 18.0,
+        "ke": 16.06,
+        "beta_l": 1.32,
+        "cfr": 2.78,
+        "cfr_prev": -0.90,
+        "is_negative_equity": False,
+        "status": "Ֆինանսական վիճակի բարելավում. 2023 թ. վնասից հետո 2024 թ. գրանցվել է 9.88 մլրդ դրամ զուտ շահույթ, իսկ սեփական կապիտալի կշիռն աճել է մինչև 63.95%։"
     },
     "TEGHOUT": {
+        "short_name": "«Թեղուտ» ՓԲԸ",
         "name": "«Թեղուտ» ՓԲԸ",
-        "equity": -77.88,  # մլրդ դրամ (Բացասական սեփական կապիտալ)
-        "debt": 163.35,    # մլրդ դրամ
-        "kd_pretax": 0.56, # % (Փաստացի վճարված տոկոսների հիման վրա նախնական գնահատական)
-        "tax_rate": 18.0,  # %
-        "ke": 0.0,         # Բացասական կապիտալի պայմաններում պայմանական/կիրառելի չէ
-        "cfr": -12.5,      # մլրդ դրամ (ԸՖՊ-ն բացասական է մեծ կրեդիտորականների պատճառով)
-        "status": "Բացասական սեփական կապիտալ, բարձր պարտքային բեռ և գործունեության շարունակականության ռիսկեր"
+        "year": "2024 թ.",
+        "equity": -77.88,
+        "debt": 163.35,
+        "kd_pretax": 0.56,
+        "tax_rate": 18.0,
+        "ke": 0.0,
+        "beta_l": 0.0,
+        "cfr": -12.50,
+        "cfr_prev": -14.20,
+        "is_negative_equity": True,
+        "status": "Բացասական սեփական կապիտալ (-77.88 մլրդ դրամ)։ Պարտավորությունները գերազանցում են ակտիվները, ինչի պատճառով դասական WACC բանաձևը տնտեսապես կիրառելի չէ։"
     }
 }
 
-def calculate_wacc(equity, debt, ke, kd_pretax, tax_rate):
-    """Հաշվարկում է WACC-ը և կապիտալի կշիռները"""
+def calculate_wacc_metrics(equity, debt, ke, kd_pretax, tax_rate):
+    """Հաշվարկում է կապիտալի կշիռները, հարկային վահանով Kd-ն և WACC-ը"""
+    total_v = equity + debt
+    kd_after_tax = kd_pretax * (1 - tax_rate / 100.0)
+    
     if equity <= 0:
-        # Բացասական կապիտալի դեպքում դասական WACC հաշվարկը կիրառելի չէ (ինչպես նշված է թեզում)
-        return None, None, None
+        # Բացասական սեփական կապիտալի դեպքում վերադարձնում ենք միայն կշիռների տեխնիկական պատկերը և Kd-ն
+        we = (equity / total_v * 100) if total_v != 0 else 0
+        wd = (debt / total_v * 100) if total_v != 0 else 0
+        return None, round(we, 2), round(wd, 2), round(kd_after_tax, 2)
     
-    total_capital = equity + debt
-    if total_capital == 0:
-        return 0, 0, 0
-        
-    we = equity / total_capital
-    wd = debt / total_capital
-    kd_after_tax = kd_pretax * (1 - tax_rate / 100)
-    
+    we = equity / total_v
+    wd = debt / total_v
     wacc = (we * ke) + (wd * kd_after_tax)
-    return wacc, we * 100, wd * 100
+    return round(wacc, 2), round(we * 100, 2), round(wd * 100, 2), round(kd_after_tax, 2)
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    selected_key = "ZCMC"
-    if request.method == "POST":
-        selected_key = request.form.get("company", "ZCMC")
-    
+    selected_key = request.form.get("company", "ZCMC") if request.method == "POST" else "ZCMC"
     comp = COMPANIES_DATA[selected_key]
-    
-    # Հիմնական WACC հաշվարկ ընտրված ընկերության համար
-    wacc, we_pct, wd_pct = calculate_wacc(comp["equity"], comp["debt"], comp["ke"], comp["kd_pretax"], comp["tax_rate"])
-    
-    # Սցենարային հաշվարկներ ԶՊՄԿ-ի համար (կամ ընդհանուր տրամաբանությամբ)
+
+    # Եթե օգտատերը ձեռքով փոխել է պարամետրերը սիմուլյատորում
+    if request.method == "POST" and "custom_submit" in request.form:
+        equity = float(request.form.get("equity", comp["equity"]))
+        debt = float(request.form.get("debt", comp["debt"]))
+        ke = float(request.form.get("ke", comp["ke"]))
+        kd_pretax = float(request.form.get("kd_pretax", comp["kd_pretax"]))
+        tax_rate = float(request.form.get("tax_rate", comp["tax_rate"]))
+        cfr = float(request.form.get("cfr", comp["cfr"]))
+    else:
+        equity = comp["equity"]
+        debt = comp["debt"]
+        ke = comp["ke"]
+        kd_pretax = comp["kd_pretax"]
+        tax_rate = comp["tax_rate"]
+        cfr = comp["cfr"]
+
+    wacc, we_pct, wd_pct, kd_after_tax = calculate_wacc_metrics(equity, debt, ke, kd_pretax, tax_rate)
+
+    # Սցենարային վերլուծություն (ԸՖՊ-ի ֆինանսավորման ազդեցությունը WACC-ի վրա)
     scenarios = []
-    if selected_key == "ZCMC":
-        cfr_val = comp["cfr"]
-        # Սցենար 1. ԸՖՊ-ի ամբողջական ֆինանսավորում լրացուցիչ վարկով
-        d1 = comp["debt"] + cfr_val
-        wacc1, _, _ = calculate_wacc(comp["equity"], d1, comp["ke"], comp["kd_pretax"], comp["tax_rate"])
-        scenarios.append({"name": "Սցենար 1: ԸՖՊ-ն ամբողջությամբ ֆինանսավորվում է վարկով", "wacc": round(wacc1, 2) if wacc1 else "Կիրառելի չէ"})
-        
+    if equity > 0:
+        # Սցենար 1. ԸՖՊ-ի ֆինանսավորում լրացուցիչ վարկային միջոցներով
+        wacc_s1, we_s1, wd_s1, _ = calculate_wacc_metrics(equity, debt + abs(cfr), ke, kd_pretax, tax_rate)
+        scenarios.append({
+            "title": "Սցենար 1. ԸՖՊ-ի ամբողջական ֆինանսավորում փոխառու միջոցներով (վարկով)",
+            "desc": f"Տոկոսակիր պարտքն ավելանում է {abs(cfr):.2f} մլրդ դրամով (դառնալով {debt + abs(cfr):.2f} մլրդ):",
+            "we": we_s1,
+            "wd": wd_s1,
+            "wacc": wacc_s1,
+            "diff": round(wacc_s1 - wacc, 2)
+        })
+
         # Սցենար 2. ԸՖՊ-ի ֆինանսավորում սեփական կապիտալով
-        e2 = comp["equity"] + cfr_val
-        wacc2, _, _ = calculate_wacc(e2, comp["debt"], comp["ke"], comp["kd_pretax"], comp["tax_rate"])
-        scenarios.append({"name": "Սցենար 2: ԸՖՊ-ն ամբողջությամբ ֆինանսավորվում է սեփական միջոցներով", "wacc": round(wacc2, 2) if wacc2 else "Կիրառելի չէ"})
+        wacc_s2, we_s2, wd_s2, _ = calculate_wacc_metrics(equity + abs(cfr), debt, ke, kd_pretax, tax_rate)
+        scenarios.append({
+            "title": "Սցենար 2. ԸՖՊ-ի ամբողջական ֆինանսավորում սեփական կապիտալով",
+            "desc": f"Սեփական կապիտալն ավելանում է {abs(cfr):.2f} մլրդ դրամով (դառնալով {equity + abs(cfr):.2f} մլրդ):",
+            "we": we_s2,
+            "wd": wd_s2,
+            "wacc": wacc_s2,
+            "diff": round(wacc_s2 - wacc, 2)
+        })
 
-    # Զգայունության վերլուծություն (Sensitivity Analysis)՝ Ke-ի փոփոխությունը ազդեցությունը WACC-ի վրա
-    sensitivity_results = []
-    if comp["equity"] > 0:
-        for ke_test in [10.0, 12.0, 14.0, 15.0, 16.0, 18.0, 20.0]:
-            w_test, _, _ = calculate_wacc(comp["equity"], comp["debt"], ke_test, comp["kd_pretax"], comp["tax_rate"])
-            if w_test:
-                sensitivity_results.append({"ke": ke_test, "wacc": round(w_test, 2)})
+        # Սցենար 3. ԸՖՊ-ի օպտիմալացում և ազատված միջոցներով պարտքի մարում (ԶՊՄԿ 2024-2025 օրինակով՝ 7.84 մլրդ)
+        freed_cash = 7.84 if selected_key == "ZCMC" else round(abs(cfr) * 0.25, 2)
+        if debt > freed_cash:
+            wacc_s3, we_s3, wd_s3, _ = calculate_wacc_metrics(equity, debt - freed_cash, ke, kd_pretax, tax_rate)
+            scenarios.append({
+                "title": "Սցենար 3. ԸՖՊ-ի նվազեցում և ազատված միջոցների ուղղում պարտքի մարմանը",
+                "desc": f"Ազատված {freed_cash:.2f} մլրդ դրամն ուղղվում է վարկերի մարմանը (պարտքը նվազում է մինչև {debt - freed_cash:.2f} մլրդ):",
+                "we": we_s3,
+                "wd": wd_s3,
+                "wacc": wacc_s3,
+                "diff": round(wacc_s3 - wacc, 2)
+            })
 
-    analysis_text = f"Վերլուծվում է {comp['name']} ընկերությունը։ Ֆինանսական վիճակը՝ {comp['status']}։"
+    # Զգայունության վերլուծություն (Ke-ի տատանումը 10%-ից 20% միջակայքում)
+    sensitivity_labels = []
+    sensitivity_values = []
+    sensitivity_table = []
+    if equity > 0:
+        for ke_step in [10.0, 12.0, 14.0, 15.0, 16.0, 18.0, 20.0]:
+            w_val, _, _, _ = calculate_wacc_metrics(equity, debt, ke_step, kd_pretax, tax_rate)
+            sensitivity_labels.append(f"{ke_step}%")
+            sensitivity_values.append(w_val)
+            sensitivity_table.append({"ke": ke_step, "wacc": w_val})
 
     return render_template(
         "index.html",
         companies=COMPANIES_DATA,
         selected_key=selected_key,
         comp=comp,
-        wacc=round(wacc, 2) if wacc is not None else "Կիրառելի չէ (Բացասական կապիտալ)",
-        we_pct=round(we_pct, 2) if we_pct is not None else 0,
-        wd_pct=round(wd_pct, 2) if wd_pct is not None else 0,
+        equity=equity,
+        debt=debt,
+        ke=ke,
+        kd_pretax=kd_pretax,
+        kd_after_tax=kd_after_tax,
+        tax_rate=tax_rate,
+        cfr=cfr,
+        wacc=wacc,
+        we_pct=we_pct,
+        wd_pct=wd_pct,
         scenarios=scenarios,
-        sensitivity=sensitivity_results,
-        analysis=analysis_text
+        sensitivity_labels=sensitivity_labels,
+        sensitivity_values=sensitivity_values,
+        sensitivity_table=sensitivity_table
     )
 
 if __name__ == "__main__":
