@@ -1,164 +1,511 @@
-from flask import Flask, render_template, request
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WACC և ԸՖՊ Վերլուծական Համակարգ | Մագիստրոսական Թեզ</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --secondary: #0f172a;
+            --accent: #0d9488;
+            --danger: #dc2626;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans Armenian', 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        .header-banner {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            color: white;
+            padding: 35px 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .header-banner h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 700; }
+        .header-banner p { margin: 0; color: #cbd5e1; font-size: 14px; }
+        
+        .container { max-width: 1180px; margin: -20px auto 40px auto; padding: 0 20px; }
+        
+        /* Ընկերության ընտրության վահանակ */
+        .selector-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+        }
+        .selector-group { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; flex: 1; }
+        select {
+            padding: 12px 16px;
+            font-size: 15px;
+            font-family: inherit;
+            border-radius: 8px;
+            border: 2px solid var(--primary-light);
+            background: #f8fafc;
+            color: var(--secondary);
+            font-weight: 600;
+            min-width: 320px;
+            cursor: pointer;
+        }
+        .badge-year {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
 
-app = Flask(__name__)
+        /* Հիմնական KPI քարտեր */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-bottom: 25px;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            border-top: 4px solid var(--primary);
+        }
+        .kpi-card.accent { border-top-color: var(--accent); }
+        .kpi-card.danger { border-top-color: var(--danger); }
+        .kpi-title { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+        .kpi-value { font-size: 24px; font-weight: 700; color: var(--secondary); }
+        .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-# Թեզում ներկայացված երեք ընկերությունների փաստացի տվյալները (մլրդ դրամ / %)
-COMPANIES_DATA = {
-    "ZCMC": {
-        "short_name": "ԶՊՄԿ ՓԲԸ",
-        "name": "«Զանգեզուրի պղնձամոլիբդենային կոմբինատ» ՓԲԸ",
-        "year": "2025 թ. (համախմբված)",
-        "equity": 259.34,
-        "debt": 117.71,
-        "kd_pretax": 8.55,
-        "tax_rate": 18.0,
-        "ke": 15.00,
-        "beta_l": 1.24,
-        "cfr": 20.53,
-        "cfr_prev": 28.38, # 2024 թ. ԸՖՊ՝ 3-րդ սցենարի (պարտքի մարման) հաշվարկի համար
-        "is_negative_equity": False,
-        "status": "Կայուն շահութաբերություն և դրական սեփական կապիտալ։ 2024–2025 թթ. նկատվել է պարտավորությունների աճ և ԸՖՊ-ի նվազում (57.72 մլրդ-ից մինչև 20.53 մլրդ դրամ)։"
-    },
-    "KAPAN": {
-        "short_name": "Կապանի ԼՀԿ ՓԲԸ",
-        "name": "«Կապանի լեռնահարստացման կոմբինատ» ՓԲԸ",
-        "year": "2024 թ.",
-        "equity": 33.27,
-        "debt": 18.76,
-        "kd_pretax": 10.00,
-        "tax_rate": 18.0,
-        "ke": 16.06,
-        "beta_l": 1.32,
-        "cfr": 2.78,
-        "cfr_prev": -0.90,
-        "is_negative_equity": False,
-        "status": "Ֆինանսական վիճակի բարելավում. 2023 թ. վնասից հետո 2024 թ. գրանցվել է 9.88 մլրդ դրամ զուտ շահույթ, իսկ սեփական կապիտալի կշիռն աճել է մինչև 63.95%։"
-    },
-    "TEGHOUT": {
-        "short_name": "«Թեղուտ» ՓԲԸ",
-        "name": "«Թեղուտ» ՓԲԸ",
-        "year": "2024 թ.",
-        "equity": -77.88,
-        "debt": 163.35,
-        "kd_pretax": 0.56,
-        "tax_rate": 18.0,
-        "ke": 0.0,
-        "beta_l": 0.0,
-        "cfr": -12.50,
-        "cfr_prev": -14.20,
-        "is_negative_equity": True,
-        "status": "Բացասական սեփական կապիտալ (-77.88 մլրդ դրամ)։ Պարտավորությունները գերազանցում են ակտիվները, ինչի պատճառով դասական WACC բանաձևը տնտեսապես կիրառելի չէ։"
+        /* Հիմնական 2 սյունակ */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 22px;
+            margin-bottom: 25px;
+        }
+        @media (max-width: 850px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+        .card h2 {
+            margin: 0 0 16px 0;
+            font-size: 17px;
+            color: var(--primary);
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 10px;
+        }
+
+        /* Սիմուլյացիայի դաշտեր */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .input-box label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+        .input-box input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 11px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.2s;
+            margin-top: 15px;
+            width: 100%;
+        }
+        .btn:hover { background: #1e40af; }
+        .btn-secondary { background: var(--accent); margin-top: 10px; }
+        .btn-secondary:hover { background: #0f766e; }
+
+        /* Աղյուսակներ և Սցենարներ */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+        th { background: #f8fafc; color: var(--secondary); font-weight: 600; }
+        
+        .alert-info {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary-light);
+            padding: 14px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 22px;
+        }
+        .alert-danger {
+            background: #fef2f2;
+            border-left: 4px solid var(--danger);
+            color: #991b1b;
+            padding: 14px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .scenario-item {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .scenario-title { font-weight: 700; color: var(--primary); font-size: 14px; margin-bottom: 4px; }
+        .scenario-meta { font-size: 13px; color: var(--text); }
+        .formula-note {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--muted);
+            border: 1px dashed #cbd5e1;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-banner">
+    <h1>Կապիտալի միջին կշռված արժեքի (WACC) և ընթացիկ ֆինանսական պահանջի (ԸՖՊ) գնահատում</h1>
+    <p>ՀՀ հանքարդյունաբերության ճյուղի կորպորացիաների ֆինանսական վերլուծության և զգայունության մոդել</p>
+</div>
+
+<div class="container">
+    <!-- Ընկերության ընտրություն -->
+    <form method="POST" id="companyForm">
+        <div class="selector-card">
+            <div class="selector-group">
+                <label for="company" style="font-weight: 700; color: var(--secondary);">Ընտրեք կազմակերպությունը՝</label>
+                <select name="company" id="company" onchange="document.getElementById('companyForm').submit()">
+                    {% for key, item in companies.items() %}
+                        <option value="{{ key }}" {% if key == selected_key %}selected{% endif %}>{{ item.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="badge-year">Հաշվետու ժամանակաշրջան՝ {{ comp.year }}</span>
+            </div>
+        </div>
+    </form>
+
+    <!-- Կարգավիճակի ամփոփում -->
+    <div class="{% if equity <= 0 %}alert-danger{% else %}alert-info{% endif %}">
+        <strong>Վերլուծական բնութագիր ({{ comp.short_name }}).</strong> {{ comp.status }}
+    </div>
+
+    <!-- Հիմնական KPI ցուցանիշներ -->
+    <div class="kpi-grid">
+        <div class="kpi-card {% if equity <= 0 %}danger{% endif %}">
+            <div class="kpi-title">Կապիտալի միջին կշռված արժեք (WACC)</div>
+            <div class="kpi-value" style="color: {% if equity <= 0 %}var(--danger){% else %}var(--primary){% endif %};">
+                {% if wacc is not none %}
+                    {{ wacc }}%
+                {% else %}
+                    Կիրառելի չէ
+                {% endif %}
+            </div>
+            <div class="kpi-sub">
+                {% if wacc is not none %}
+                    Հարկումից հետո պարտքի արժեքը (K<sub>d</sub>(1-T))՝ {{ kd_after_tax }}%
+                {% else %}
+                    Բացասական սեփական կապիտալի սահմանափակում
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="kpi-card accent">
+            <div class="kpi-title">Ընթացիկ ֆինանսական պահանջ (ԸՖՊ)</div>
+            <div class="kpi-value">{{ cfr }} մլրդ ֏</div>
+            <div class="kpi-sub">Բանաձև՝ Պաշարներ + Դեբիտորական - Կրեդիտորական</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-title">Սեփական կապիտալ (E) և կշիռ (W<sub>e</sub>)</div>
+            <div class="kpi-value">{{ equity }} մլրդ ֏</div>
+            <div class="kpi-sub">Տեսակարար կշիռը կապիտալում՝ <strong>{{ we_pct }}%</strong></div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-title">Տոկոսակիր պարտք (D) և կշիռ (W<sub>d</sub>)</div>
+            <div class="kpi-value">{{ debt }} մլրդ ֏</div>
+            <div class="kpi-sub">Տեսակարար կշիռը կապիտալում՝ <strong>{{ wd_pct }}%</strong></div>
+        </div>
+    </div>
+
+    <!-- Գրաֆիկներ և Ինտերակտիվ Սիմուլյացիա -->
+    <div class="main-grid">
+        <!-- Ձախ սյունակ՝ Պարամետրերի սիմուլյատոր և CAPM -->
+        <div class="card">
+            <h2>Ֆինանսական պարամետրերի սիմուլյացիա</h2>
+            <form method="POST">
+                <input type="hidden" name="company" value="{{ selected_key }}">
+                <input type="hidden" name="custom_submit" value="1">
+                <div class="form-grid">
+                    <div class="input-box">
+                        <label>Սեփական կապիտալ (E, մլրդ դրամ)</label>
+                        <input type="number" step="0.01" name="equity" value="{{ equity }}" required>
+                    </div>
+                    <div class="input-box">
+                        <label>Տոկոսակիր պարտք (D, մլրդ դրամ)</label>
+                        <input type="number" step="0.01" name="debt" value="{{ debt }}" required>
+                    </div>
+                    <div class="input-box">
+                        <label>Սեփական կապիտալի արժեք (K<sub>e</sub>, %)</label>
+                        <input type="number" step="0.01" id="ke_input" name="ke" value="{{ ke }}" required>
+                    </div>
+                    <div class="input-box">
+                        <label>Փոխառու կապիտալի արժեք (K<sub>d</sub>, %)</label>
+                        <input type="number" step="0.01" name="kd_pretax" value="{{ kd_pretax }}" required>
+                    </div>
+                    <div class="input-box">
+                        <label>Շահութահարկի դրույքաչափ (T, %)</label>
+                        <input type="number" step="0.1" name="tax_rate" value="{{ tax_rate }}" required>
+                    </div>
+                    <div class="input-box">
+                        <label>Ընթացիկ ֆինանսական պահանջ (ԸՖՊ, մլրդ)</label>
+                        <input type="number" step="0.01" name="cfr" value="{{ cfr }}" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn">Վերահաշվարկել WACC-ը և սցենարները</button>
+            </form>
+
+            <!-- CAPM արագ հաշվիչ -->
+            <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--border);">
+                <h3 style="font-size: 15px; margin: 0 0 10px 0; color: var(--secondary);">
+                    Ի՞նչ է K<sub>e</sub>-ն և ինչպե՞ս է հաշվարկվում (CAPM մոդել)
+                </h3>
+                <p style="font-size: 13px; color: var(--muted); margin-top: 0;">
+                    <strong>K<sub>e</sub></strong>-ն սեփական կապիտալի արժեքն է՝ այն նվազագույն եկամտաբերությունը, որը պահանջում են բաժնետերերը ստանձնած ռիսկի դիմաց։ Հաշվարկվում է՝ <b>K<sub>e</sub> = R<sub>f</sub> + β<sub>L</sub> × ERP<sub>m</sub> + CRP</b> բանաձևով.
+                </p>
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="input-box">
+                        <label>Ռիսկից զերծ դրույք (R<sub>f</sub>, ՀՀ ԿԲ %)</label>
+                        <input type="number" step="0.01" id="rf" value="9.50">
+                    </div>
+                    <div class="input-box">
+                        <label>Լծակավորված բետա (β<sub>L</sub>, Damodaran)</label>
+                        <input type="number" step="0.01" id="beta" value="{{ comp.beta_l if comp.beta_l > 0 else 1.24 }}">
+                    </div>
+                    <div class="input-box">
+                        <label>Շուկայական ռիսկի հավելավճար (ERP<sub>m</sub>, %)</label>
+                        <input type="number" step="0.01" id="erp" value="4.23">
+                    </div>
+                    <div class="input-box">
+                        <label>Երկրի ռիսկի հավելավճար (CRP, ՀՀ %)</label>
+                        <input type="number" step="0.01" id="crp" value="4.66">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="calculateCAPM()">Հաշվարկել K<sub>e</sub>-ն և տեղադրել վերևում</button>
+            </div>
+        </div>
+
+        <!-- Աջ սյունակ՝ Կապիտալի կառուցվածք և Սցենարներ -->
+        <div class="card">
+            <h2>Կապիտալի կառուցվածքը և ԸՖՊ ֆինանսավորման սցենարները</h2>
+            
+            {% if equity > 0 %}
+                <div style="max-width: 260px; margin: 0 auto 20px auto;">
+                    <canvas id="capitalChart"></canvas>
+                </div>
+
+                <h3 style="font-size: 15px; color: var(--secondary); margin-bottom: 10px;">
+                    ԸՖՊ-ի ֆինանսավորման աղբյուրի ազդեցությունը WACC-ի վրա
+                </h3>
+                {% for sc in scenarios %}
+                <div class="scenario-item">
+                    <div class="scenario-title">{{ sc.title }}</div>
+                    <div class="scenario-meta">{{ sc.desc }}</div>
+                    <div class="scenario-meta" style="margin-top: 5px;">
+                        Նոր կշիռներ՝ W<sub>e</sub> = {{ sc.we }}%, W<sub>d</sub> = {{ sc.wd }}% | 
+                        <strong>Նոր WACC = {{ sc.wacc }}%</strong> 
+                        <span style="color: {% if sc.diff < 0 %}var(--accent){% else %}var(--danger){% endif %};">
+                            ({% if sc.diff > 0 %}+{% endif %}{{ sc.diff }}%)
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert-danger">
+                    <strong>Մեթոդաբանական սահմանափակում («Թեղուտ» ՓԲԸ).</strong><br>
+                    Բացասական սեփական կապիտալի (-77.88 մլրդ դրամ) պայմաններում կապիտալի կշիռները ստանում են ոչ տնտեսական արժեքներ (W<sub>e</sub> = {{ we_pct }}%, W<sub>d</sub> = {{ wd_pct }}%)։ Ուստի դասական WACC բանաձևը չի կիրառվում, և առաջնահերթ գնահատվում է պարտքային բեռն ու իրացվելիությունը։
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Զգայունության վերլուծություն (Գրաֆիկ + Աղյուսակ) -->
+    {% if equity > 0 %}
+    <div class="card" style="margin-bottom: 25px;">
+        <h2>Զգայունության վերլուծություն. K<sub>e</sub>-ի փոփոխության ազդեցությունը WACC-ի վրա</h2>
+        <div class="main-grid" style="margin-bottom: 0; align-items: center;">
+            <div>
+                <canvas id="sensitivityChart" height="160"></canvas>
+            </div>
+            <div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Սեփական կապիտալի արժեք (K<sub>e</sub>)</th>
+                            <th>Հաշվարկված WACC</th>
+                            <th>Շեղում բազայինից</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in sensitivity_table %}
+                        <tr {% if row.ke == ke %}style="background: #eff6ff; font-weight: 700;"{% endif %}>
+                            <td>{{ row.ke }}%</td>
+                            <td>{{ row.wacc }}%</td>
+                            <td>
+                                {% set d = (row.wacc - wacc)|round(2) %}
+                                {% if d > 0 %}+{{ d }}%{% else %}{{ d }}%{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Երեք ընկերությունների համեմատական ամփոփ աղյուսակ -->
+    <div class="card">
+        <h2>ՀՀ հանքարդյունաբերության ոլորտի 3 ընկերությունների համեմատական ամփոփում</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Կազմակերպություն</th>
+                    <th>Սեփական կապիտալ (E)</th>
+                    <th>Տոկոսակիր պարտք (D)</th>
+                    <th>ԸՖՊ (մլրդ դրամ)</th>
+                    <th>K<sub>d</sub>(1-T)</th>
+                    <th>K<sub>e</sub></th>
+                    <th>WACC</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>«Զանգեզուրի ՊՄԿ» ՓԲԸ</strong></td>
+                    <td>259.34 մլրդ ֏</td>
+                    <td>117.71 մլրդ ֏</td>
+                    <td>20.53 մլրդ ֏</td>
+                    <td>7.01%</td>
+                    <td>15.00%</td>
+                    <td><strong>12.51%</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>«Կապանի ԼՀԿ» ՓԲԸ</strong></td>
+                    <td>33.27 մլրդ ֏</td>
+                    <td>18.76 մլրդ ֏</td>
+                    <td>2.78 մլրդ ֏</td>
+                    <td>8.20%</td>
+                    <td>16.06%</td>
+                    <td><strong>13.23%</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>«Թեղուտ» ՓԲԸ</strong></td>
+                    <td style="color: var(--danger);">-77.88 մլրդ ֏</td>
+                    <td>163.35 մլրդ ֏</td>
+                    <td>-12.50 մլրդ ֏</td>
+                    <td>0.46% (վճարված)</td>
+                    <td>Կիրառելի չէ</td>
+                    <td style="color: var(--danger);">Կիրառելի չէ</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // CAPM Հաշվիչի ֆունկցիա
+    function calculateCAPM() {
+        const rf = parseFloat(document.getElementById('rf').value) || 0;
+        const beta = parseFloat(document.getElementById('beta').value) || 0;
+        const erp = parseFloat(document.getElementById('erp').value) || 0;
+        const crp = parseFloat(document.getElementById('crp').value) || 0;
+        
+        const ke = rf + (beta * erp) + crp;
+        document.getElementById('ke_input').value = ke.toFixed(2);
+        alert("CAPM մոդելով հաշվարկված Ke-ն կազմում է " + ke.toFixed(2) + "% և տեղադրվեց վերևի դաշտում։ Սեղմեք «Վերահաշվարկել WACC-ը» կոճակը։");
     }
-}
 
-def calculate_wacc_metrics(equity, debt, ke, kd_pretax, tax_rate):
-    """Հաշվարկում է կապիտալի կշիռները, հարկային վահանով Kd-ն և WACC-ը"""
-    total_v = equity + debt
-    kd_after_tax = kd_pretax * (1 - tax_rate / 100.0)
-    
-    if equity <= 0:
-        # Բացասական սեփական կապիտալի դեպքում վերադարձնում ենք միայն կշիռների տեխնիկական պատկերը և Kd-ն
-        we = (equity / total_v * 100) if total_v != 0 else 0
-        wd = (debt / total_v * 100) if total_v != 0 else 0
-        return None, round(we, 2), round(wd, 2), round(kd_after_tax, 2)
-    
-    we = equity / total_v
-    wd = debt / total_v
-    wacc = (we * ke) + (wd * kd_after_tax)
-    return round(wacc, 2), round(we * 100, 2), round(wd * 100, 2), round(kd_after_tax, 2)
+    {% if equity > 0 %}
+    // Կապիտալի կառուցվածքի շրջանաձև գրաֆիկ
+    const ctxCap = document.getElementById('capitalChart').getContext('2d');
+    new Chart(ctxCap, {
+        type: 'doughnut',
+        data: {
+            labels: ['Սեփական կապիտալ (We %)', 'Փոխառու կապիտալ (Wd %)'],
+            datasets: [{
+                data: [{{ we_pct }}, {{ wd_pct }}],
+                backgroundColor: ['#1e3a8a', '#0d9488'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
 
-@app.route("/", methods=["GET", "POST"])
-def home():
-    selected_key = request.form.get("company", "ZCMC") if request.method == "POST" else "ZCMC"
-    comp = COMPANIES_DATA[selected_key]
+    // Զգայունության վերլուծության գծային գրաֆիկ
+    const ctxSens = document.getElementById('sensitivityChart').getContext('2d');
+    new Chart(ctxSens, {
+        type: 'line',
+        data: {
+            labels: {{ sensitivity_labels | tojson }},
+            datasets: [{
+                label: 'WACC-ի փոփոխությունը (%) ըստ Ke-ի',
+                data: {{ sensitivity_values | tojson }},
+                borderColor: '#1e3a8a',
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                borderWidth: 3,
+                pointRadius: 5,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { title: { display: true, text: 'WACC (%)' } },
+                x: { title: { display: true, text: 'Սեփական կապիտալի արժեք Ke (%)' } }
+            }
+        }
+    });
+    {% endif %}
+</script>
 
-    # Եթե օգտատերը ձեռքով փոխել է պարամետրերը սիմուլյատորում
-    if request.method == "POST" and "custom_submit" in request.form:
-        equity = float(request.form.get("equity", comp["equity"]))
-        debt = float(request.form.get("debt", comp["debt"]))
-        ke = float(request.form.get("ke", comp["ke"]))
-        kd_pretax = float(request.form.get("kd_pretax", comp["kd_pretax"]))
-        tax_rate = float(request.form.get("tax_rate", comp["tax_rate"]))
-        cfr = float(request.form.get("cfr", comp["cfr"]))
-    else:
-        equity = comp["equity"]
-        debt = comp["debt"]
-        ke = comp["ke"]
-        kd_pretax = comp["kd_pretax"]
-        tax_rate = comp["tax_rate"]
-        cfr = comp["cfr"]
-
-    wacc, we_pct, wd_pct, kd_after_tax = calculate_wacc_metrics(equity, debt, ke, kd_pretax, tax_rate)
-
-    # Սցենարային վերլուծություն (ԸՖՊ-ի ֆինանսավորման ազդեցությունը WACC-ի վրա)
-    scenarios = []
-    if equity > 0:
-        # Սցենար 1. ԸՖՊ-ի ֆինանսավորում լրացուցիչ վարկային միջոցներով
-        wacc_s1, we_s1, wd_s1, _ = calculate_wacc_metrics(equity, debt + abs(cfr), ke, kd_pretax, tax_rate)
-        scenarios.append({
-            "title": "Սցենար 1. ԸՖՊ-ի ամբողջական ֆինանսավորում փոխառու միջոցներով (վարկով)",
-            "desc": f"Տոկոսակիր պարտքն ավելանում է {abs(cfr):.2f} մլրդ դրամով (դառնալով {debt + abs(cfr):.2f} մլրդ):",
-            "we": we_s1,
-            "wd": wd_s1,
-            "wacc": wacc_s1,
-            "diff": round(wacc_s1 - wacc, 2)
-        })
-
-        # Սցենար 2. ԸՖՊ-ի ֆինանսավորում սեփական կապիտալով
-        wacc_s2, we_s2, wd_s2, _ = calculate_wacc_metrics(equity + abs(cfr), debt, ke, kd_pretax, tax_rate)
-        scenarios.append({
-            "title": "Սցենար 2. ԸՖՊ-ի ամբողջական ֆինանսավորում սեփական կապիտալով",
-            "desc": f"Սեփական կապիտալն ավելանում է {abs(cfr):.2f} մլրդ դրամով (դառնալով {equity + abs(cfr):.2f} մլրդ):",
-            "we": we_s2,
-            "wd": wd_s2,
-            "wacc": wacc_s2,
-            "diff": round(wacc_s2 - wacc, 2)
-        })
-
-        # Սցենար 3. ԸՖՊ-ի օպտիմալացում և ազատված միջոցներով պարտքի մարում (ԶՊՄԿ 2024-2025 օրինակով՝ 7.84 մլրդ)
-        freed_cash = 7.84 if selected_key == "ZCMC" else round(abs(cfr) * 0.25, 2)
-        if debt > freed_cash:
-            wacc_s3, we_s3, wd_s3, _ = calculate_wacc_metrics(equity, debt - freed_cash, ke, kd_pretax, tax_rate)
-            scenarios.append({
-                "title": "Սցենար 3. ԸՖՊ-ի նվազեցում և ազատված միջոցների ուղղում պարտքի մարմանը",
-                "desc": f"Ազատված {freed_cash:.2f} մլրդ դրամն ուղղվում է վարկերի մարմանը (պարտքը նվազում է մինչև {debt - freed_cash:.2f} մլրդ):",
-                "we": we_s3,
-                "wd": wd_s3,
-                "wacc": wacc_s3,
-                "diff": round(wacc_s3 - wacc, 2)
-            })
-
-    # Զգայունության վերլուծություն (Ke-ի տատանումը 10%-ից 20% միջակայքում)
-    sensitivity_labels = []
-    sensitivity_values = []
-    sensitivity_table = []
-    if equity > 0:
-        for ke_step in [10.0, 12.0, 14.0, 15.0, 16.0, 18.0, 20.0]:
-            w_val, _, _, _ = calculate_wacc_metrics(equity, debt, ke_step, kd_pretax, tax_rate)
-            sensitivity_labels.append(f"{ke_step}%")
-            sensitivity_values.append(w_val)
-            sensitivity_table.append({"ke": ke_step, "wacc": w_val})
-
-    return render_template(
-        "index.html",
-        companies=COMPANIES_DATA,
-        selected_key=selected_key,
-        comp=comp,
-        equity=equity,
-        debt=debt,
-        ke=ke,
-        kd_pretax=kd_pretax,
-        kd_after_tax=kd_after_tax,
-        tax_rate=tax_rate,
-        cfr=cfr,
-        wacc=wacc,
-        we_pct=we_pct,
-        wd_pct=wd_pct,
-        scenarios=scenarios,
-        sensitivity_labels=sensitivity_labels,
-        sensitivity_values=sensitivity_values,
-        sensitivity_table=sensitivity_table
-    )
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000, debug=True)
+</body>
+</html>
